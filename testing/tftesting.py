@@ -100,8 +100,11 @@ def baseline_normalize(tfr, start=0, stop=None,channel='all', window=50, alg='dB
         raise NameError('"%s" is not a recognized algorithm. The available algorithms are dB, prct, and Z' % alg)
     return normalized_tfr
 
-def HPF(data, N, Wn=70.0/250, channel=0, plot=True):
-    b,a = signal.butter(N=N, Wn=Wn,btype='high')
+def BPF(data, fps, passband=None, channel=0, plot=False):
+    # Filters from 150-250 Hz (SWR region)
+    nyq = 0.5*fps
+    N = signal.buttord(wp=[100/nyq,300/nyq], ws=[50/nyq,350/nyq],gpass=-10,gstop=20)
+    b,a = signal.butter(N=N[0], Wn=[100/nyq,300/nyq],btype='bandpass')
     filtered_data = signal.filtfilt(b,a,data)
     if plot==True:
         plt.subplot(2,1,1)
@@ -113,20 +116,39 @@ def HPF(data, N, Wn=70.0/250, channel=0, plot=True):
         plt.show()
     return filtered_data
 
+def readint(intfile):
+    mydata = read_data(intfile)
+    duration = mydata['duration']
+    data = np.transpose(mydata['analog'])
+    fps = data.shape[1] / float(duration)
+    return data,fps
 
-data_dict = np.load('recording_141202_000511_downsampled.npz')
-data = data_dict['down_data']
-data = np.transpose(data) # Transpose data to (leads, times)
-sfreq = data.shape[1]/240.0 # Recording time = 240 s
-freqs = np.arange(2,250,5)
-tfr = tf.cwt_morlet(data, sfreq, freqs)
+def downsample(data, fps=None, step=10):
+    if fps==None:
+        return data[:,::step]
+    else:
+        return data[:,::step],fps/float(step)
+
+#data_dict = np.load('recording_141202_000511_downsampled.npz')
+#data = data_dict['down_data']
+#data = np.transpose(data) # Transpose data to (leads, times)
+#sfreq = data.shape[1]/240.0 # Recording time = 240 s
+#freqs = np.arange(2,250,5)
+#tfr = tf.cwt_morlet(data, sfreq, freqs)
+mydata,fps = readint('gt1962_2_d1_150528_115815.int')
 set_trace()
+data,fps = downsample(mydata,fps=fps)
+data = BPF(data,fps)
+freqs = np.arange(2,500,2)
+tfr = tf.cwt_morlet(data,fps,freqs)
+pwr = baseline_normalize(tfr)
+
 # Baseline normalize
-tfr = baseline_normalize(tfr)
+#tfr = baseline_normalize(tfr)
 
 # View tfr
-view(tfr,freqs,data)
+#view(tfr,freqs,data)
 # Show channels 1,2,3,4,16
-show_channels(data,channels = [1,2,3,4,16])
+#show_channels(data,channels = [1,2,3,4,16])
 print('End of test.')
 
