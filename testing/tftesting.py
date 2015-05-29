@@ -107,8 +107,8 @@ def baseline_normalize(tfr, start=0, stop=None,channel='all', window=50, alg='dB
 def SWR_filter(data, fps, passband=None, channel=0, plot=False):
     # Filters from 150-250 Hz (SWR region)
     nyq = 0.5*fps
-    N = signal.buttord(wp=[100/nyq,300/nyq], ws=[50/nyq,350/nyq],gpass=-10,gstop=20)
-    b,a = signal.butter(N=N[0], Wn=[100/nyq,300/nyq],btype='bandpass')
+    N = signal.buttord(wp=[150/nyq,250/nyq], ws=[100/nyq,300/nyq],gpass=-10,gstop=20)
+    b,a = signal.butter(N=N[0], Wn=[150/nyq,251/nyq],btype='bandpass')
     filtered_data = signal.filtfilt(b,a,data)
     if plot==True:
         plt.subplot(2,1,1)
