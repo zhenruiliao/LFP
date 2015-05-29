@@ -7,12 +7,13 @@ from matplotlib import pyplot as plt
 from matplotlib.colors import Normalize
 from intan_fixed import *
 
-def view_tfr(tfr, freqs, raw, channel=0, start=0, stop=None, width=250, fmax=None, symmetrize=True):
+def view_tfr(tfr, freqs, raw, sfreq, channel=0, start=0, stop=None, width=250, fmin=None, fmax=None, symmetrize=True):
     """
     Parameters:
     TFR - power array. If convolution data is passed, power will be extracted automatically
         BASELINE NORMALIZATION HIGHLY RECOMMENDED!
     freqs - frequencies of wavelet
+    sfreq - sample frequency
     raw - EEG raw data
     channel - Channel to view. Default 0
     start - Start time to view. Default 0
@@ -22,9 +23,12 @@ def view_tfr(tfr, freqs, raw, channel=0, start=0, stop=None, width=250, fmax=Non
     """
     if stop == None:
         stop = start+width
+    if fmin == None:
+        fmin = np.amin(freqs)
     if fmax == None:
-        fmax = tfr.shape[1]-1
-    pwr = np.squeeze(tfr[channel,:fmax,start:stop])
+        fmax = np.amax(freqs)
+        if fmax > 0.5*sfreq: print 'Warning: max frequency exceeds Nyquist rate'
+    pwr = np.squeeze(tfr[channel,np.where(freqs==fmin)[0][0]:np.where(freqs==fmax)[0][0],start:stop])
     if np.iscomplexobj(pwr):
         print('Warning: Complex array passed. Extracting powers automatically...')
         pwr = np.real(pwr*np.conj(pwr))
@@ -38,7 +42,7 @@ def view_tfr(tfr, freqs, raw, channel=0, start=0, stop=None, width=250, fmax=Non
         norm = Normalize(vmin=vmin, vmax=vmax)
 
     plt.subplot(2,1,1)
-    plt.imshow(pwr, extent=[start,stop,np.amax(freqs),0], interpolation='nearest',
+    plt.imshow(pwr, extent=[start,stop,fmax,fmin], interpolation='nearest',
             aspect='auto', norm=norm)
     plt.colorbar()
     plt.subplot(2,1,2)
@@ -65,7 +69,7 @@ def tfrview(tfr, channel=0, averaging_window = 500,fmax=None):
         newrows.append(np.squeeze(block_avgs))
     newdata = np.vstack(newrows)
     plt.imshow(newdata, extent=[0,data.shape[1], fmax,0], interpolation='nearest',
-        aspect = 2020/9.0)
+        aspect = 20/9.0)
     plt.show()
 
 def show_channels(data,channels = None):
@@ -100,7 +104,7 @@ def baseline_normalize(tfr, start=0, stop=None,channel='all', window=50, alg='dB
         raise NameError('"%s" is not a recognized algorithm. The available algorithms are dB, prct, and Z' % alg)
     return normalized_tfr
 
-def BPF(data, fps, passband=None, channel=0, plot=False):
+def SWR_filter(data, fps, passband=None, channel=0, plot=False):
     # Filters from 150-250 Hz (SWR region)
     nyq = 0.5*fps
     N = signal.buttord(wp=[100/nyq,300/nyq], ws=[50/nyq,350/nyq],gpass=-10,gstop=20)
@@ -138,7 +142,7 @@ def downsample(data, fps=None, step=10):
 mydata,fps = readint('gt1962_2_d1_150528_115815.int')
 set_trace()
 data,fps = downsample(mydata,fps=fps)
-data = BPF(data,fps)
+data = SWR_filter(data,fps)
 freqs = np.arange(2,500,2)
 tfr = tf.cwt_morlet(data,fps,freqs)
 pwr = baseline_normalize(tfr)
