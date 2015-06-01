@@ -21,6 +21,7 @@ def view_tfr(tfr, freqs, raw, sfreq, channel=0, start=0, stop=None, width=250, f
     stop - Stop time to view. Default start + width
     symmetrize - Set to False if not using dB baseline normalization. Default True
     """
+    sfreq = float(sfreq)
     if stop == None:
         stop = start+width
     if fmin == None:
@@ -46,14 +47,20 @@ def view_tfr(tfr, freqs, raw, sfreq, channel=0, start=0, stop=None, width=250, f
             aspect='auto', norm=norm)
     plt.colorbar()
     plt.subplot(2,1,2)
-    plt.plot(np.array(range(start,stop)),np.squeeze(raw[channel,start:stop]))
+    plt.plot(np.array(range(start,stop)/sfreq),np.squeeze(raw[channel,start:stop]))
     plt.show()
 
-def dBplot(tfr, freqs, channel=0):
-    chan = tfr[channel,:,:]
-    rowsums = np.sum(chan*np.conj(chan),axis=1)
-    dBs = 10*np.log(rowsums)
-    plt.plot(freqs, dBs)
+def dBplot(pwr, freqs, channels='all'):
+    if channel == 'all':
+        channels = range(pwr.shape[0])
+    channels = list(channels)
+    for channel in channels:
+        plt.subplot(len(channels),1,channel+1)
+        plt.title('Channel ' + str(channel))
+        chan = pwr[channel,:,:]
+        rowsums = np.sum(pwr,axis=1)
+        dBs = 10*np.log(rowsums)
+        plt.plot(freqs, dBs)
     plt.show()
 
 def tfrview(tfr, channel=0, averaging_window = 500,fmax=None):
@@ -75,7 +82,9 @@ def tfrview(tfr, channel=0, averaging_window = 500,fmax=None):
 def show_channels(data,channels = None):
     if channels == None:
         channels = xrange(data.shape[0])
+    channels = list(channels) # Support single index input
     for i in xrange(len(channels)):
         plt.subplot(len(channels),1,i+1)
+        plt.title('Channel ' + str(i))
         plt.plot(data[channels[i],:])
     plt.show()

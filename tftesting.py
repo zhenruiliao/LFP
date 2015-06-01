@@ -18,10 +18,10 @@ from intan_fixed import *
 mydata,fps = readint('gt1962_2_d1_150528_115815.int')
 set_trace()
 data,fps = downsample(mydata,fps=fps)
-data = SWR_filter(data,fps)
+data = wave_filter(data,fps, passband='SWR')
 freqs = np.arange(2,500,2)
-tfr = tf.cwt_morlet(data,fps,freqs)
 pwr = baseline_normalize(tfr)
+tfr = tf.cwt_morlet(data,fps,freqs)
 
 # Baseline normalize
 #tfr = baseline_normalize(tfr)

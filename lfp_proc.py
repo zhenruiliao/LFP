@@ -31,11 +31,35 @@ def baseline_normalize(tfr, start=0, stop=None,channel='all', window=50, alg='dB
         raise NameError('"%s" is not a recognized algorithm. The available algorithms are dB, prct, and Z' % alg)
     return normalized_tfr
 
-def SWR_filter(data, fps, passband=None, channel=0, plot=False):
+def morlet(data, sfreq, freqs):
+    tfr = tf.cwt.morlet(data, sfreq, freqs)
+    return tfr
+
+def find_SPW(data):
+    """
+    Looks for sharp wave events in raw data.
+    8 Hz - 30 Hz
+    -Ref: Buzsaki 1986, Brain Res.
+    """
+    pass
+
+def wave_filter(data, fps, passband=None, channel=0, plot=False):
     # Filters from 150-250 Hz (SWR region)
     nyq = 0.5*fps
-    N = signal.buttord(wp=[150/nyq,250/nyq], ws=[100/nyq,300/nyq],gpass=-10,gstop=20)
-    b,a = signal.butter(N=N[0], Wn=[150/nyq,251/nyq],btype='bandpass')
+    if passband == 'SWR':
+        wp = [150/nyq, 250/nyq]
+        ws = [100/nyq, 300/nyq]
+    elif passband == 'theta':
+        wp = [4/nyq, 8/nyq]
+        ws = [2/nyq, 10/nyq]
+    elif passband == 'gamma':
+        wp = [30/nyq, 50/nyq]
+        ws = [20/nyq, 100/nyq]
+    else:
+        raise NameError('"%s" is not a recognized passband. ' +
+                'The recognized passbands are SWR, theta, and gamma.' % passband)
+    N = signal.buttord(wp=wp, ws=ws,gpass=-10,gstop=20)
+    b,a = signal.butter(N=N[0], Wn=wp,btype='bandpass')
     filtered_data = signal.filtfilt(b,a,data)
     if plot==True:
         plt.subplot(2,1,1)
