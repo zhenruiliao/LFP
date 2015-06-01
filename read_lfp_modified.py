@@ -23,7 +23,7 @@ for channel in xrange(data['analog'].shape[1]):
             conn.saveFigure('lfp_'+str(int((channel-1)/4)), fig)
         fig,axs = plt.subplots(nrows=4, figsize=(10,8))
     channel_data = data['analog'][:,channel]
-    
+
     import pudb; pudb.set_trace()
     N=101
     nyq= 0.5 * 25000
