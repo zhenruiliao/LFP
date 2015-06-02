@@ -16,12 +16,16 @@ from intan_fixed import *
 #freqs = np.arange(2,250,5)
 #tfr = tf.cwt_morlet(data, sfreq, freqs)
 mydata,fps = readint('gt1962_2_d1_150528_115815.int')
-set_trace()
 data,fps = downsample(mydata,fps=fps)
+
+#detect_SPWR(data,fps,channels=[3])
+
 data = wave_filter(data,fps, passband='SWR')
-freqs = np.arange(2,500,2)
-pwr = baseline_normalize(tfr)
-tfr = tf.cwt_morlet(data,fps,freqs)
+corr = find_SPW(data,channel=3)
+find_SPWR(data,fps,corr,channel=3)
+#freqs = np.arange(2,500,2)
+#pwr = baseline_normalize(tfr)
+#tfr = tf.cwt_morlet(data,fps,freqs)
 
 # Baseline normalize
 #tfr = baseline_normalize(tfr)
