@@ -39,8 +39,14 @@ def baseline_normalize(tfr, start=0, stop=None,channel='all', window=50, alg='dB
     return normalized_tfr
 
 def morlet(data, sfreq, freqs):
-    tfr = tf.cwt.morlet(data, sfreq, freqs)
+    tfr = tf.cwt_morlet(data, sfreq, freqs)
     return tfr
+
+def tfwindow(data,sfreq, freqs, start,end, channel=0):
+    window = np.expand_dims(data[channel,:],axis=0)
+    tfr = morlet(window,sfreq,freqs)
+    ntfr = baseline_normalize(tfr)
+    return ntfr[0,:,start:end]
 
 def find_SPW(data, kernel='kernel.npz', channel=0, plot=False):
     """
@@ -65,7 +71,7 @@ def find_SPWR(filtered_data, fps, SPW, corr=None, channel=0):
     """
     fps - Frames per second. Required to construct window of size 120 ms
     """
-    set_trace()
+   # set_trace()
     freqseries = pd.Series(filtered_data[channel,:])
     window = int(0.120 * fps)
     rolling_avg = np.array(pd.rolling_mean(freqseries, window = window, center=True))
@@ -101,7 +107,16 @@ def detect_SPWR(data, sfreq, channels='all'):
     while(1):
         channel,event = input('Input an event to plot in the form channel,event: ')
         width = int(sfreq / 2)
-        plt.plot(np.linspace(0,0.5,num=width),data[channel,candidates[event]-width/2:candidates[event]+width/2])
+        start = candidates[event]-width/2
+        end = candidates[event]+width/2
+        plt.subplot(3,1,1)
+        plt.plot(np.linspace(0,0.5,num=width),data[channel,start:end])
+        plt.subplot(3,1,2)
+        plt.plot(np.linspace(0,0.5,num=width),filtered_data[channel,start:end])
+        plt.subplot(3,1,3)
+        freqs = np.arange(1,200,5)
+        tfr = tfwindow(data,sfreq,freqs,start,end,channel=channel)
+        plt.imshow(tfr, aspect='auto', extent=[0,0.5,200,1])
         plt.show()
 
 def wave_filter(data, fps, passband=None, channel=0, plot=False):
