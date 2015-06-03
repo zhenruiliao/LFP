@@ -10,8 +10,8 @@ from intan_fixed import *
 
 # data - 2d array of shape (channels, times)
 # tfr - 3d array of shape (channels, frequencies, times)
-#
-#
+# sfreq - sample frequency
+# freqs - array of frequencies of interest
 #
 
 def baseline_normalize(tfr, start=0, stop=None,channel='all', window=50, alg='dB'):
@@ -56,10 +56,11 @@ def find_SPW(data, kernel='kernel.npz', channel=0, plot=False):
     Restrict to 30 - 120 ms?
     -Ref: Buzsaki 1986, Brain Res.
     """
+    #set_trace()
     with np.load(kernel) as match_data:
         ker = match_data['arr_0']
     corr = signal.correlate(data[channel,:], ker, mode='same')
-    threshold = np.mean(corr) + 3*np.std(corr) # 3 sigma threshold
+    threshold = np.mean(corr) + 3*np.std(corr) # 2 sigma threshold
   #  SPW_location = np.where(np.abs(corr) > threshold)[0]
     if plot == True:
         plt.plot(np.arange(data.shape[1]),data[channel,:],\
@@ -71,11 +72,12 @@ def find_SPWR(filtered_data, fps, SPW, corr=None, channel=0):
     """
     fps - Frames per second. Required to construct window of size 120 ms
     """
-   # set_trace()
+    set_trace()
     freqseries = pd.Series(filtered_data[channel,:])
     window = int(0.120 * fps)
-    rolling_avg = np.array(pd.rolling_mean(freqseries, window = window, center=True))
-    ripples = np.nan_to_num(rolling_avg)
+    rolling_avg = np.nan_to_num(np.array(pd.rolling_mean(freqseries, window = window, center=True)))
+    ripples = rolling_avg
+    #ripples = np.abs(rolling_avg) > np.std(filtered_data[channel:])
   #  maxfreq = 1 / (0.030) # Hz
   #  N,Wn = signal.buttord(wp=maxfreq / (0.5*fps), ws=(1 / 0.020)/(0.5*fps), gpass=-10, gstop=20)
   #  b,a = signal.butter(N=N, Wn=Wn, btype='lowpass')
@@ -89,6 +91,7 @@ def detect_SPWR(data, sfreq, channels='all'):
     """
     Detects SPWR in all channels
     """
+    #set_trace()
     if channels == 'all':
         channels = xrange(data.shape[0])
     SPWRs = {}
@@ -114,7 +117,7 @@ def detect_SPWR(data, sfreq, channels='all'):
         plt.subplot(3,1,2)
         plt.plot(np.linspace(0,0.5,num=width),filtered_data[channel,start:end])
         plt.subplot(3,1,3)
-        freqs = np.arange(1,200,5)
+        freqs = np.arange(1,250,5)
         tfr = tfwindow(data,sfreq,freqs,start,end,channel=channel)
         plt.imshow(tfr, aspect='auto', extent=[0,0.5,200,1])
         plt.show()
