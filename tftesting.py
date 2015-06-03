@@ -20,9 +20,9 @@ data,fps = downsample(mydata,fps=fps)
 
 detect_SPWR(data,fps,channels=[3])
 
-#data = wave_filter(data,fps, passband='SWR')
+#filtered_data = wave_filter(data,fps, passband='SWR')
 #corr = find_SPW(data,channel=3)
-find_SPWR(data,fps,corr,channel=3)
+#find_SPWR(data,filtered_data,fps,corr,channel=3)
 #freqs = np.arange(2,500,2)
 #pwr = baseline_normalize(tfr)
 #tfr = tf.cwt_morlet(data,fps,freqs)
