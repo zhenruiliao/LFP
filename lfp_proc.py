@@ -54,7 +54,7 @@ def tfwindow(data,sfreq, freqs, start=0,end=None, channel=0):
 def find_SPW(data, kernel='kernel.npz', channel=0, plot=False):
     """
     Looks for sharp wave events in raw data.
-    Requires a .npz file to use as a kernel
+    Uses matched filtering - Requires a .npz file to use as a kernel
     8 Hz - 30 Hz
     Restrict to 30 - 120 ms?
     -Ref: Buzsaki 1986, Brain Res.
@@ -87,8 +87,9 @@ def find_SPWR(data, filtered_data, fps, SPW, corr=None, channel=0):
   #  ripples = signal.filtfilt(b,a,rolling_avg)
     freqs = np.arange(1,250,5)
     tfr = tfwindow(data,fps,freqs,channel=channel)
-    SPWR = np.sum(tfr[29:,:] * np.expand_dims(SPW,axis=0),axis=0)
-    events = np.where(SPWR > 6*np.std(SPWR))[0]
+    SPWR = np.sum(tfr[29:,:].clip(min=0) * np.expand_dims(SPW,axis=0),axis=0)
+    roll = np.nan_to_num(np.array(pd.rolling_mean(SPWR,window=window,center=True)))
+    events = np.where(roll > 2.5*np.std(roll))[0]
     eventlist = np.split(events, np.where(np.diff(events) > 10)[0] + 1)
     return eventlist,tfr
 
@@ -112,12 +113,13 @@ def detect_SPWR(data, sfreq, channels='all'):
         print('Channel %d: %d likely sharp-wave ripple events' % (ch,len(candidates)))
     while(1):
         channel = input('Select a channel: ')
+        event = 0
         while(1):
             print('For channel %d, likely sharp-wave ripple events at:' % channel)
             for i in range(len(candidates)):
                 print('\t'+'%d. %d frames / %1.2f seconds' % (i,candidates[i],candidates[i]/float(sfreq)))
-            event = input('Input an event to plot, or input "^" to return to channel selection: ')
-            if event == "^": break
+            event = input('Input an event to plot, or input -1 to return to channel selection: ')
+            if event == -1: break
             width = int(sfreq / 2)
             start = candidates[event]-width/2
             end = candidates[event]+width/2
@@ -126,7 +128,7 @@ def detect_SPWR(data, sfreq, channels='all'):
             plt.subplot(3,1,2)
             plt.plot(np.linspace(0,0.5,num=width),filtered_data[channel,start:end])
             plt.subplot(3,1,3)
-            plt.imshow(tfr, aspect='auto', extent=[0,0.5,200,1])
+            plt.imshow(tfr[:,start:end], aspect='auto', extent=[0,0.5,250,1])
             plt.show()
 
 def wave_filter(data, fps, passband=None, channel=0, plot=False):
