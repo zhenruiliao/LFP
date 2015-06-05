@@ -79,12 +79,12 @@ def tfrview(tfr, channel=0, averaging_window = 500,fmax=None):
         aspect = 20/9.0)
     plt.show()
 
-def show_channels(data,channels = None):
+def show_channels(data, start, end, channels = None):
     if channels == None:
         channels = xrange(data.shape[0])
     channels = list(channels) # Support single index input
     for i in xrange(len(channels)):
         plt.subplot(len(channels),1,i+1)
         plt.title('Channel ' + str(i))
-        plt.plot(data[channels[i],:])
+        plt.plot(data[channels[i],start:end])
     plt.show()

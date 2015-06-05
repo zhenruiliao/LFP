@@ -1,6 +1,5 @@
 import numpy as np
 import scipy.signal as signal
-import mne
 import pandas as pd
 from mne import time_frequency as tf
 from pudb import set_trace
@@ -63,7 +62,7 @@ def find_SPW(data, kernel='kernel.npz', channel=0, plot=False):
     with np.load(kernel) as match_data:
         ker = match_data['arr_0']
     corr = signal.correlate(data[channel,:], ker, mode='same')
-    threshold = np.mean(corr) + 3*np.std(corr) # 2 sigma threshold
+   # threshold = np.mean(corr) + 3*np.std(corr) # 2 sigma threshold
   #  SPW_location = np.where(np.abs(corr) > threshold)[0]
     if plot == True:
         plt.plot(np.arange(data.shape[1]),data[channel,:],\
@@ -71,27 +70,30 @@ def find_SPW(data, kernel='kernel.npz', channel=0, plot=False):
         plt.show()
     return corr
 
-def find_SPWR(data, filtered_data, fps, SPW, corr=None, channel=0):
+def find_SPWR(filtered_data,tfr, fps, SPW, corr=None, channel=0):
     """
     fps - Frames per second. Required to construct window of size 120 ms
+    The TFR is generated (and used) in this function.
+    TODO: Get it out
     """
     #set_trace()
     freqseries = pd.Series(filtered_data[channel,:])
     window = int(0.120 * fps)
-    rolling_avg = np.nan_to_num(np.array(pd.rolling_mean(freqseries, window = window, center=True)))
-    ripples = rolling_avg
+#    rolling_avg = np.nan_to_num(np.array(pd.rolling_mean(freqseries, window = window, center=True)))
+#    ripples = rolling_avg
     #ripples = np.abs(rolling_avg) > np.std(filtered_data[channel:])
   #  maxfreq = 1 / (0.030) # Hz
   #  N,Wn = signal.buttord(wp=maxfreq / (0.5*fps), ws=(1 / 0.020)/(0.5*fps), gpass=-10, gstop=20)
   #  b,a = signal.butter(N=N, Wn=Wn, btype='lowpass')
   #  ripples = signal.filtfilt(b,a,rolling_avg)
-    freqs = np.arange(1,250,5)
-    tfr = tfwindow(data,fps,freqs,channel=channel)
-    SPWR = np.sum(tfr[29:,:].clip(min=0) * np.expand_dims(SPW,axis=0),axis=0)
+    tfr_limited = tfr[29:,:] # only works if 29 == 150 Hz
+    tfr_limited[tfr_limited < 0] = 0
+  #  SPWR = np.sum(tfr_limited * np.expand_dims(SPW,axis=0),axis=0)
+    SPWR = np.sum(tfr_limited,axis=0)
     roll = np.nan_to_num(np.array(pd.rolling_mean(SPWR,window=window,center=True)))
-    events = np.where(roll > 2.5*np.std(roll))[0]
-    eventlist = np.split(events, np.where(np.diff(events) > 10)[0] + 1)
-    return eventlist,tfr
+    events = np.where(roll > 5*np.std(roll))[0]
+    eventlist = np.split(events, np.where(np.diff(events) > 0.4*fps)[0] + 1)
+    return eventlist
 
 def detect_SPWR(data, sfreq, channels='all'):
     """
@@ -104,16 +106,22 @@ def detect_SPWR(data, sfreq, channels='all'):
     filtered_data = wave_filter(data,sfreq,passband='SWR')
     for ch in channels:
         SPW = find_SPW(data,channel=ch)
-        SPWR,tfr = find_SPWR(data,filtered_data, sfreq, SPW, channel=ch)
+        freqs = np.arange(1,250,5)
+        tfr = tfwindow(data,sfreq,freqs,channel=ch)
+        SPWR = find_SPWR(filtered_data,tfr, sfreq, SPW, channel=ch)
         SPWRs[str(ch)]=SPWR
         print('Reading channel %d...' % ch)
     print('All channels read.')
+    all_channels = []
     for ch in channels:
         candidates = map(lambda x:int(np.median(x)), SPWRs[str(ch)])
+        all_channels.append(candidates)
         print('Channel %d: %d likely sharp-wave ripple events' % (ch,len(candidates)))
     while(1):
-        channel = input('Select a channel: ')
+        channel = input('Select a channel (type 999 to quit): ')
         event = 0
+        if channel == 999: break
+        candidates = all_channels[channel]
         while(1):
             print('For channel %d, likely sharp-wave ripple events at:' % channel)
             for i in range(len(candidates)):
@@ -123,13 +131,22 @@ def detect_SPWR(data, sfreq, channels='all'):
             width = int(sfreq / 2)
             start = candidates[event]-width/2
             end = candidates[event]+width/2
+            starttime = frame2time(start,sfreq)
+            endtime = frame2time(end,sfreq)
+            xaxis = np.linspace(starttime,endtime,num=width)
             plt.subplot(3,1,1)
-            plt.plot(np.linspace(0,0.5,num=width),data[channel,start:end])
+            plt.plot(xaxis,data[channel,start:end])
+            plt.xlim((np.min(xaxis), np.max(xaxis)))
             plt.subplot(3,1,2)
-            plt.plot(np.linspace(0,0.5,num=width),filtered_data[channel,start:end])
+            plt.plot(xaxis,filtered_data[channel,start:end])
+            plt.xlim((np.min(xaxis), np.max(xaxis)))
             plt.subplot(3,1,3)
-            plt.imshow(tfr[:,start:end], aspect='auto', extent=[0,0.5,250,1])
+            plt.imshow(tfr[:,start:end], aspect='auto', extent=[starttime,endtime,250,1])
             plt.show()
+
+def frame2time(frame, sfreq):
+    sfreq = float(sfreq)
+    return frame / sfreq
 
 def wave_filter(data, fps, passband=None, channel=0, plot=False):
     # Filters from 150-250 Hz (SWR region)

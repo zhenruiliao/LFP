@@ -1,13 +1,7 @@
 import numpy as np
-import scipy.signal as signal
-import mne
-from mne import time_frequency as tf
 from lfp_view import *
 from lfp_proc import *
 from pudb import set_trace
-from matplotlib import pyplot as plt
-from matplotlib.colors import Normalize
-from intan_fixed import *
 
 #data_dict = np.load('recording_141202_000511_downsampled.npz')
 #data = data_dict['down_data']
@@ -18,7 +12,7 @@ from intan_fixed import *
 mydata,fps = readint('gt1962_2_d1_150528_115815.int')
 data,fps = downsample(mydata,fps=fps)
 
-detect_SPWR(data,fps,channels=[3])
+detect_SPWR(data,fps,channels='all')
 
 #filtered_data = wave_filter(data,fps, passband='SWR')
 #corr = find_SPW(data,channel=3)
