@@ -3,8 +3,10 @@
 """
 Interatively zoom plots together, but permit them to scroll independently.
 """
-from matplotlib import pyplot
+from matplotlib import pyplot as plt
+from matplotlib.widgets import Slider
 from pudb import set_trace
+from time import sleep
 from lfp_proc import *
 from lfp_view import *
 import sys
@@ -23,7 +25,7 @@ def _set_limits( ax, lims ):
 
 def pre_zoom( fig ):
     """ Initialize history used by the re_zoom() event handler.
-        Call this after plots are configured and before pyplot.show().
+        Call this after plots are configured and before plt.show().
     """
     global oxy
     oxy = [_get_limits(ax) for ax in fig.axes]
@@ -31,7 +33,7 @@ def pre_zoom( fig ):
     return
 
 def re_zoom(event):
-    """ Pyplot event handler to scroll all plots together
+    """ plt event handler to scroll all plots together
         Use with 'motion_notify_event' and 'button_release_event'.
     """
     global oxy
@@ -59,6 +61,7 @@ def re_zoom(event):
         return
     if event.name != 'button_release_event':    # Nothing to do!
         return
+
     # We have a non-scroll 'button_release_event': Were we zooming?
     zooming = (navmode == "ZOOM") or ((event.button == 3) and (navmode == "PAN"))
     if not zooming:                 # Nothing to do!
@@ -96,6 +99,18 @@ def re_zoom(event):
     return
 # End re_zoom()
 
+def pan(event):
+    while(1):
+        try:
+            for ax in event.canvas.figure.axes:
+                xlim,ylim = _get_limits(ax)
+                xlim = np.array(xlim) + 50
+                lims = [xlim, ylim]
+                _set_limits(ax, lims)
+            event.canvas.draw()
+        except:
+            return
+
 def main(argv):
     """ Test/demo code for re_zoom() event handler.
     """
@@ -105,27 +120,42 @@ def main(argv):
     freqs = np.arange(1,250,5)
     pwr = tfwindow(data,fps,freqs,channel=3)
 #    set_trace()
-    fig = pyplot.figure()               # Create plot
-    ax1 = pyplot.subplot(311)
+    fig = plt.figure()               # Create plot
+    ax1 = plt.subplot(4,1,1)
     ax1.plot(data[3,:])
-    pyplot.title('Raw dataset')
-    pyplot.xlim( (0,1000) )
-    ax2 = pyplot.subplot(312)
+    plt.title('Raw dataset')
+    plt.xlim( (0,1000) )
+    ax2 = plt.subplot(4,1,2)
     ax2.plot(filtered_data[3,:])
-    pyplot.title('Filtered dataset')
-    pyplot.xlim( (0,1000) )
-    ax3= pyplot.subplot(313)
+    plt.title('Filtered dataset')
+    plt.xlim( (0,1000) )
+    ax3= plt.subplot(4,1,3)
     ax3.imshow(pwr[0,:,:], aspect='auto')
-    pyplot.title('Time-frequency plot')
-    pyplot.xlim( (0,1000) )
+    plt.title('Time-frequency plot')
+    plt.xlim( (0,1000) )
     labels = [str(item) for item in np.linspace(-50,250,7)]
     ax3.set_yticklabels(labels)
+    axcolor = 'lightgoldenrodyellow'
+#    ax4 = plt.subplot(4,1,4)
+    axpos = plt.axes([0.25, 0.1, 0.65, 0.03], axisbg=axcolor)
+    POS_SLIDER = Slider(axpos, 'Position', 500, data.shape[1], valinit=500)
+
+    def update(val):
+        pos = POS_SLIDER.val
+        for ax in fig.axes:
+            ylim = _get_limits(ax)[1]
+            xlim = [pos-500,pos+500]
+            lims = [xlim, ylim]
+            _set_limits(ax, lims)
+        fig.canvas.draw_idle()
+    POS_SLIDER.on_changed(update)
 
     pre_zoom( fig )                     # Prepare plot event handler
-    pyplot.connect('motion_notify_event', re_zoom)  # for right-click pan/zoom
-    pyplot.connect('button_release_event',re_zoom)  # for rectangle-select zoom
+    plt.connect('motion_notify_event', re_zoom)  # for right-click pan/zoom
+    plt.connect('button_release_event',re_zoom)  # for rectangle-select zoom
+    plt.connect('key_press_event', pan)
 
-    pyplot.show()                       # Show plot and interact with user
+    plt.show()                       # Show plot and interact with user
 # End main()
 
 if __name__ == "__main__":
