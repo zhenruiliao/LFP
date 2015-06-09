@@ -4,7 +4,6 @@ import pandas as pd
 from mne import time_frequency as tf
 from pudb import set_trace
 from matplotlib import pyplot as plt
-from matplotlib.colors import Normalize
 from intan_fixed import *
 
 # data - 2d array of shape (channels, times)
@@ -45,10 +44,10 @@ def tfwindow(data,sfreq, freqs, start=0,end=None, channel=0):
     window = np.expand_dims(data[channel,:],axis=0)
     tfr = morlet(window,sfreq,freqs)
     ntfr = baseline_normalize(tfr)
-    if end != None:
-        return ntfr[0,:,start:end]
+    if end is not None:
+        return ntfr[:,start:end]
     else:
-        return ntfr[0,:,start:]
+        return ntfr[:,start:]
 
 def find_SPW(data, kernel='kernel.npz', channel=0, plot=False):
     """
@@ -148,10 +147,10 @@ def frame2time(frame, sfreq):
     sfreq = float(sfreq)
     return frame / sfreq
 
-def wave_filter(data, fps, passband=None, channel=0, plot=False):
+def wave_filter(data, fps, passband=None, channel=None, plot=False):
     # Filters from 150-250 Hz (SWR region)
     nyq = 0.5*fps
-    if passband == 'SWR':
+    if passband == 'SWR' or passband is None:
         wp = [150/nyq, 250/nyq]
         ws = [100/nyq, 300/nyq]
     elif passband == 'theta':
@@ -166,7 +165,7 @@ def wave_filter(data, fps, passband=None, channel=0, plot=False):
     N = signal.buttord(wp=wp, ws=ws,gpass=-10,gstop=20)
     b,a = signal.butter(N=N[0], Wn=wp,btype='bandpass')
     filtered_data = signal.filtfilt(b,a,data)
-    if plot==True:
+    if plot==True and channel is not None:
         plt.subplot(2,1,1)
         plt.title('Original timeseries')
         plt.plot(data[channel,:])

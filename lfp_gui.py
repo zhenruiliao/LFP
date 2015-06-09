@@ -31,8 +31,7 @@ def pre_zoom( fig ):
     return
 
 def re_zoom(event):
-    """ Pyplot event handler to zoom all plots together, but permit them to
-        scroll independently.  Created to support eyeball correlation.
+    """ Pyplot event handler to scroll all plots together
         Use with 'motion_notify_event' and 'button_release_event'.
     """
     global oxy
@@ -42,7 +41,21 @@ def re_zoom(event):
             break
     scrolling = (event.button == 1) and (navmode == "PAN")
     if scrolling:                   # Update history (independent of event type)
+        changed = None
+        for i, ax in enumerate(event.canvas.figure.axes): # Get the axes
+            # Find the plot that changed
+            nxy = _get_limits(ax)
+            if (oxy[i][0] != nxy[0]):         # This plot has changed
+                changed = i
+                newx = nxy[0]
+                break                   # No need to look at other axes
         oxy = [_get_limits(ax) for ax in event.canvas.figure.axes]
+        if changed is not None:
+            for i, ax in enumerate(event.canvas.figure.axes):
+                if i != changed:
+                    _set_limits(ax,[newx, oxy[i][1]])
+            event.canvas.draw()         # re-draw the canvas (if required)
+            pre_zoom(event.canvas.figure)   # Update history
         return
     if event.name != 'button_release_event':    # Nothing to do!
         return
@@ -52,32 +65,32 @@ def re_zoom(event):
         oxy = [_get_limits(ax) for ax in event.canvas.figure.axes]  # To be safe
         return
     # We were zooming, but did anything change?  Check for zoom activity.
-    changed = None
-    zoom = [[0.0,0.0],[0.0,0.0]]    # Zoom from each end of axis (2 values per axis)
-    for i, ax in enumerate(event.canvas.figure.axes): # Get the axes
-        # Find the plot that changed
-        nxy = _get_limits(ax)
-        if (oxy[i] != nxy):         # This plot has changed
-            changed = i
-            # Calculate zoom factors
-            for j in [0,1]:         # Iterate over x and y for each axis
-                # Indexing: nxy[x/y axis][lo/hi limit]
-                #           oxy[plot #][x/y axis][lo/hi limit]
-                width = oxy[i][j][1] - oxy[i][j][0]
-                # Determine new axis scale factors in a way that correctly
-                # handles simultaneous zoom + scroll: Zoom from each end.
-                zoom[j] = [(nxy[j][0] - oxy[i][j][0]) / width,  # lo-end zoom
-                           (oxy[i][j][1] - nxy[j][1]) / width]  # hi-end zoom
-            break                   # No need to look at other axes
-    if changed is not None:
-        for i, ax in enumerate(event.canvas.figure.axes): # change the scale
-            if i == changed:
-                continue
-            for j in [0,1]:
-                width = oxy[i][j][1] - oxy[i][j][0]
-                nxy[j] = [oxy[i][j][0] + (width*zoom[j][0]),
-                          oxy[i][j][1] - (width*zoom[j][1])]
-            _set_limits(ax, nxy)
+    # changed = None
+    # zoom = [[0.0,0.0],[0.0,0.0]]    # Zoom from each end of axis (2 values per axis)
+    # for i, ax in enumerate(event.canvas.figure.axes): # Get the axes
+    #     # Find the plot that changed
+    #     nxy = _get_limits(ax)
+    #     if (oxy[i] != nxy):         # This plot has changed
+    #         changed = i
+    #         # Calculate zoom factors
+    #         for j in [0,1]:         # Iterate over x and y for each axis
+    #             # Indexing: nxy[x/y axis][lo/hi limit]
+    #             #           oxy[plot #][x/y axis][lo/hi limit]
+    #             width = oxy[i][j][1] - oxy[i][j][0]
+    #             # Determine new axis scale factors in a way that correctly
+    #             # handles simultaneous zoom + scroll: Zoom from each end.
+    #             zoom[j] = [(nxy[j][0] - oxy[i][j][0]) / width,  # lo-end zoom
+    #                        (oxy[i][j][1] - nxy[j][1]) / width]  # hi-end zoom
+    #         break                   # No need to look at other axes
+    # if changed is not None:
+    #     for i, ax in enumerate(event.canvas.figure.axes): # change the scale
+    #         if i == changed:
+    #             continue
+    #         for j in [0,1]:
+    #             width = oxy[i][j][1] - oxy[i][j][0]
+    #             nxy[j] = [oxy[i][j][0] + (width*zoom[j][0]),
+    #                       oxy[i][j][1] - (width*zoom[j][1])]
+    #         _set_limits(ax, nxy)
         event.canvas.draw()         # re-draw the canvas (if required)
         pre_zoom(event.canvas.figure)   # Update history
     return
@@ -95,13 +108,18 @@ def main(argv):
     fig = pyplot.figure()               # Create plot
     ax1 = pyplot.subplot(311)
     ax1.plot(data[3,:])
+    pyplot.title('Raw dataset')
     pyplot.xlim( (0,1000) )
     ax2 = pyplot.subplot(312)
     ax2.plot(filtered_data[3,:])
+    pyplot.title('Filtered dataset')
     pyplot.xlim( (0,1000) )
     ax3= pyplot.subplot(313)
     ax3.imshow(pwr[0,:,:], aspect='auto')
+    pyplot.title('Time-frequency plot')
     pyplot.xlim( (0,1000) )
+    labels = [str(item) for item in np.linspace(-50,250,7)]
+    ax3.set_yticklabels(labels)
 
     pre_zoom( fig )                     # Prepare plot event handler
     pyplot.connect('motion_notify_event', re_zoom)  # for right-click pan/zoom

@@ -1,11 +1,9 @@
 import numpy as np
-import scipy.signal as signal
 import mne
-from mne import time_frequency as tf
 from pudb import set_trace
 from matplotlib import pyplot as plt
 from matplotlib.colors import Normalize
-from intan_fixed import *
+from lfp_proc import *
 
 def view_tfr(tfr, freqs, raw, sfreq, channel=0, start=0, stop=None, width=250, fmin=None, fmax=None, symmetrize=True):
     """
@@ -50,6 +48,33 @@ def view_tfr(tfr, freqs, raw, sfreq, channel=0, start=0, stop=None, width=250, f
     plt.plot(np.array(range(start,stop)/sfreq),np.squeeze(raw[channel,start:stop]))
     plt.show()
 
+def rawplot(data, start=0, end=None):
+    if end == None:
+        end = len(data)
+    plt.plot(data[start:end])
+
+def filteredplot(filtered_data, start=0, end=None):
+    rawplot(filtered_data, start=start, end=end)
+
+def tfrplot(pwr, freqs, fmin=None, fmax=None, cbar=False, symmetrize=True):
+    xmin = 0
+    xmax = pwr.shape[1]
+    if fmin == None:
+        fmin = min(freqs)
+    if fmax == None:
+        fmax = max(freqs)
+    norm = None
+    if symmetrize:
+        pwrmax = np.amax(pwr)
+        pwrmin = np.amin(pwr)
+        vmin = min(pwrmin, -pwrmax)
+        vmax = max(pwrmax, -pwrmin)
+        norm = Normalize(vmin=vmin, vmax=vmax)
+    plt.imshow(pwr, extent=[start,stop,fmax,fmin], interpolation='nearest',
+            aspect='auto', norm=norm)
+    if cbar == True:
+        plt.colorbar()
+
 def dBplot(pwr, freqs, channels='all'):
     if channel == 'all':
         channels = range(pwr.shape[0])
@@ -79,12 +104,13 @@ def tfrview(tfr, channel=0, averaging_window = 500,fmax=None):
         aspect = 20/9.0)
     plt.show()
 
-def show_channels(data, start, end, channels = None):
+def show_channels(data, start=0, end=None, channels = None):
     if channels == None:
         channels = xrange(data.shape[0])
+    if end == None:
+        end = data.shape[1]
     channels = list(channels) # Support single index input
     for i in xrange(len(channels)):
         plt.subplot(len(channels),1,i+1)
         plt.title('Channel ' + str(i))
         plt.plot(data[channels[i],start:end])
-    plt.show()
