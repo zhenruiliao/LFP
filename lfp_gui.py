@@ -139,6 +139,7 @@ def main(argv):
 #    ax4 = plt.subplot(4,1,4)
     axpos = plt.axes([0.25, 0.1, 0.65, 0.03], axisbg=axcolor)
     POS_SLIDER = Slider(axpos, 'Position', 500, data.shape[1], valinit=500)
+    print(data.shape[1])
 
     def update(val):
         pos = POS_SLIDER.val

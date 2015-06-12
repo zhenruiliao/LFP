@@ -45,9 +45,9 @@ def tfwindow(data,sfreq, freqs, start=0,end=None, channel=0):
     tfr = morlet(window,sfreq,freqs)
     ntfr = baseline_normalize(tfr)
     if end is not None:
-        return ntfr[:,start:end]
+        return np.squeeze(ntfr[0,:,start:end])
     else:
-        return ntfr[:,start:]
+        return np.squeeze(ntfr[0,:,start:])
 
 def find_SPW(data, kernel='kernel.npz', channel=0, plot=False):
     """
