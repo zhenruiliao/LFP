@@ -4,7 +4,7 @@
 Interatively zoom plots together, but permit them to scroll independently.
 """
 from matplotlib import pyplot as plt
-from matplotlib.widgets import Slider
+from matplotlib.widgets import *
 from pudb import set_trace
 from time import sleep
 from lfp_proc import *
@@ -99,6 +99,21 @@ def re_zoom(event):
     return
 # End re_zoom()
 
+def onselect(eclick, erelease):
+  'eclick and erelease are matplotlib events at press and release'
+  print ' startposition : (%f, %f)' % (eclick.xdata, eclick.ydata)
+  print ' endposition   : (%f, %f)' % (erelease.xdata, erelease.ydata)
+  print ' used button   : ', eclick.button
+
+def toggle_selector(event):
+    print ' Key pressed.'
+    if event.key in ['Q', 'q'] and toggle_selector.RS.active:
+        print ' RectangleSelector deactivated.'
+        toggle_selector.RS.set_active(False)
+    if event.key in ['A', 'a'] and not toggle_selector.RS.active:
+        print ' RectangleSelector activated.'
+        toggle_selector.RS.set_active(True)
+
 def pan(event):
     while(1):
         try:
@@ -110,6 +125,12 @@ def pan(event):
             event.canvas.draw()
         except:
             return
+
+def next(event):
+    print("Seeking to next SPWR")
+
+def prev(event):
+    print("Seeking to previous SPWR")
 
 def main(argv):
     """ Test/demo code for re_zoom() event handler.
@@ -130,31 +151,52 @@ def main(argv):
     plt.title('Filtered dataset')
     plt.xlim( (0,1000) )
     ax3= plt.subplot(4,1,3)
-    ax3.imshow(pwr[0,:,:], aspect='auto')
+    ax3.imshow(pwr[:,:], aspect='auto')
     plt.title('Time-frequency plot')
     plt.xlim( (0,1000) )
     labels = [str(item) for item in np.linspace(-50,250,7)]
     ax3.set_yticklabels(labels)
-    axcolor = 'lightgoldenrodyellow'
-#    ax4 = plt.subplot(4,1,4)
-    axpos = plt.axes([0.25, 0.1, 0.65, 0.03], axisbg=axcolor)
-    POS_SLIDER = Slider(axpos, 'Position', 500, data.shape[1], valinit=500)
-    print(data.shape[1])
+    
+    # Next and previous
+    axprev = plt.axes([0.1, 0.05, 0.1, 0.075])
+    axnext = plt.axes([0.21, 0.05, 0.1, 0.075])
+    bnext = Button(axnext, 'Next')
+    bnext.on_clicked(next)
+    bprev = Button(axprev, 'Previous')
+    bprev.on_clicked(prev)
 
-    def update(val):
-        pos = POS_SLIDER.val
-        for ax in fig.axes:
-            ylim = _get_limits(ax)[1]
-            xlim = [pos-500,pos+500]
-            lims = [xlim, ylim]
-            _set_limits(ax, lims)
-        fig.canvas.draw_idle()
-    POS_SLIDER.on_changed(update)
+    # Radio buttons
+    rax = plt.axes([0.8, 0.12, 0.15, 0.15])
+    radio = RadioButtons(rax, ('Ch 1', 'Ch 2', 'Ch 3'))
+    def hzfunc(label):
+        hzdict = {'Ch 1':1, 'Ch 2':2, 'Ch 3':3}
+        print(label)
+        plt.draw()
+    radio.on_clicked(hzfunc)
+
+
+#    axcolor = 'lightgoldenrodyellow'
+#    ax4 = plt.subplot(4,1,4)
+    # axpos = plt.axes([0.25, 0.1, 0.65, 0.03], axisbg=axcolor)
+    # POS_SLIDER = Slider(axpos, 'Position', 500, data.shape[1], valinit=500)
+    # print(data.shape[1])
+
+    # def update(val):
+    #     pos = POS_SLIDER.val
+    #     for ax in fig.axes:
+    #         ylim = _get_limits(ax)[1]
+    #         xlim = [pos-500,pos+500]
+    #         lims = [xlim, ylim]
+    #         _set_limits(ax, lims)
+    #     fig.canvas.draw_idle()
+    # POS_SLIDER.on_changed(update)
 
     pre_zoom( fig )                     # Prepare plot event handler
     plt.connect('motion_notify_event', re_zoom)  # for right-click pan/zoom
     plt.connect('button_release_event',re_zoom)  # for rectangle-select zoom
     plt.connect('key_press_event', pan)
+#    toggle_selector.RS = RectangleSelector(ax, onselect, drawtype='box')
+#    plt.connect('key_press_event', toggle_selector)
 
     plt.show()                       # Show plot and interact with user
 # End main()
