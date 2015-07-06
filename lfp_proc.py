@@ -98,7 +98,7 @@ def detect_SPWR(data, sfreq, channels='all'):
     """
     Detects SPWR in all channels
     """
-    #set_trace()
+    set_trace()
     if channels == 'all':
         channels = xrange(data.shape[0])
     SPWRs = {}

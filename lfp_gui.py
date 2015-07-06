@@ -3,7 +3,7 @@
 """
 Interatively zoom plots together, but permit them to scroll independently.
 """
-from matplotlib import pyplot as plt
+from matplotlib import pylab as plt
 from matplotlib.widgets import *
 from pudb import set_trace
 from time import sleep
@@ -126,53 +126,125 @@ def pan(event):
         except:
             return
 
-def next(event):
-    print("Seeking to next SPWR")
+def calculate_SPWR(data, filtered_data, sfreq, tfr):
+    """
+    Detects SPWR in all channels
+    """
+    #set_trace()
+    channels = xrange(filtered_data.shape[0])
+    SPWRs = {}
+    for ch in channels:
+        SPW = find_SPW(data,channel=ch)
+        freqs = np.arange(1,250,5)
+        SPWR = find_SPWR(filtered_data,tfr[ch,:,:], sfreq, SPW, channel=ch)
+        SPWRs[str(ch)]=SPWR
+        print('Reading channel %d...' % ch)
+    print('All channels read.')
+    all_channels = []
+    #set_trace()
+    for ch in channels:
+        candidates = map(lambda x:int(np.median(x)), SPWRs[str(ch)])
+        all_channels.append(candidates)
+    #print(all_channels)
+    return all_channels
 
-def prev(event):
+def seeknext(event):
+    print("Seeking to next SPWR")
+    global current_SPR
+    current_SPR = (current_SPR + 1) % len(SPR_list)
+    seekto = SPR_list[current_SPR]
+    lb = max(seekto-500, 0)
+    ub = min(seekto+500, data.shape[1])
+    for i in xrange(3):
+        ax = event.canvas.figure.axes[i]
+        ax.set_xlim(lb,ub)
+    event.canvas.draw()
+
+def seekprev(event):
     print("Seeking to previous SPWR")
+    global current_SPR
+    current_SPR = (current_SPR - 1) % len(SPR_list)
+    seekto = SPR_list[current_SPR]
+    lb = max(seekto-500, 0)
+    ub = min(seekto+500, data.shape[1])
+    for i in xrange(3):
+        ax = event.canvas.figure.axes[i]
+        ax.set_xlim(lb,ub)
+    event.canvas.draw()
 
 def main(argv):
-    """ Test/demo code for re_zoom() event handler.
+    """ Why so many globals?!?
     """
     mydata,fps = readint('gt1962_2_d1_150528_115815.int')
+    global data
+    active_channel = 0
     data,fps = downsample(mydata,fps=fps)
     filtered_data = wave_filter(mydata,fps)
     freqs = np.arange(1,250,5)
-    pwr = tfwindow(data,fps,freqs,channel=3)
-#    set_trace()
+    tfspec = morlet(data,fps,freqs)
+    pwr = baseline_normalize(tfspec)
+ #   set_trace()
+    global fig
     fig = plt.figure()               # Create plot
-    ax1 = plt.subplot(4,1,1)
-    ax1.plot(data[3,:])
+    ax1 = fig.add_subplot(4,1,1)
+    raw_signal, = ax1.plot(data[0,:])
     plt.title('Raw dataset')
     plt.xlim( (0,1000) )
-    ax2 = plt.subplot(4,1,2)
-    ax2.plot(filtered_data[3,:])
+    ax2 = fig.add_subplot(4,1,2)
+    filtered_signal, = ax2.plot(filtered_data[0,:])
     plt.title('Filtered dataset')
     plt.xlim( (0,1000) )
-    ax3= plt.subplot(4,1,3)
-    ax3.imshow(pwr[:,:], aspect='auto')
+    ax3 = fig.add_subplot(4,1,3)
+    tfplot = ax3.imshow(np.squeeze(pwr[0,:,:]), aspect='auto')
     plt.title('Time-frequency plot')
     plt.xlim( (0,1000) )
     labels = [str(item) for item in np.linspace(-50,250,7)]
     ax3.set_yticklabels(labels)
-    
+    global SPWRs
+    SPWRs = calculate_SPWR(data, filtered_data,fps,pwr)
+    # Radio buttons
+    global nchans
+    nchans = len(SPWRs)
+    buttons = tuple(['Ch ' + str(i) for i in xrange(nchans)])
+    rax = plt.axes([0.8, 0.05, 0.15, 0.05*nchans])
+    radio = RadioButtons(rax, buttons)
+
+    def get_channel_data(channel):
+        raw = data[channel,:]
+        filtered = filtered_data[channel,:]
+        tfspec = pwr[channel,:,:]
+        return raw, filtered, tfspec
+
+    def update_data(label):
+        global active_channel
+        global txt
+        active_channel = int(label.split()[-1])
+        raw, filtered, tfspec = get_channel_data(active_channel)
+        raw_signal.set_ydata(raw)
+        filtered_signal.set_ydata(filtered)
+        tfplot.set_data(pwr[active_channel,:,:])
+        txt.remove()
+        info = '{} possible sharp-wave ripple events detected in channel {}'.format(len(SPR_list), active_channel)
+        txt = plt.text(0.1,1.5, info, fontsize=12)
+        fig.canvas.draw()
+        
     # Next and previous
+    global current_SPR
+    current_SPR = -1
+    global SPR_list
+    SPR_list = SPWRs[active_channel]
+    info = '{} possible sharp-wave ripple events detected in channel 0'.format(len(SPR_list))
+    global txt
+    txt = plt.text(-3.7,0.35, info, fontsize=12)
     axprev = plt.axes([0.1, 0.05, 0.1, 0.075])
     axnext = plt.axes([0.21, 0.05, 0.1, 0.075])
     bnext = Button(axnext, 'Next')
-    bnext.on_clicked(next)
+    current_SPR = bnext.on_clicked(seeknext)
     bprev = Button(axprev, 'Previous')
-    bprev.on_clicked(prev)
+    current_SPR = bprev.on_clicked(seekprev)
+    radio.on_clicked(update_data)
 
-    # Radio buttons
-    rax = plt.axes([0.8, 0.12, 0.15, 0.15])
-    radio = RadioButtons(rax, ('Ch 1', 'Ch 2', 'Ch 3'))
-    def hzfunc(label):
-        hzdict = {'Ch 1':1, 'Ch 2':2, 'Ch 3':3}
-        print(label)
-        plt.draw()
-    radio.on_clicked(hzfunc)
+
 
 
 #    axcolor = 'lightgoldenrodyellow'
